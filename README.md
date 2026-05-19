@@ -30,7 +30,6 @@
 - 三大法人、外資買賣、法人買超賣超、外資動向、投信動向、自營商
 - TWSE 分析、台股法人、bfi82u、日報表下載
 - 「外資買了多少」「法人累積走勢」「畫累積圖」「轉折點分析」
-- institutional investors Taiwan、foreign investors TWSE
 - 任何想了解台股法人籌碼面的問題
 
 ---
@@ -219,7 +218,6 @@ scipy
 
 **系統需求**：
 - Python 3.7+
-- 微軟正黑體字型（Windows 預設已安裝，用於圖表中文顯示）
 - 可連線至 `www.twse.com.tw`
 
 ---
