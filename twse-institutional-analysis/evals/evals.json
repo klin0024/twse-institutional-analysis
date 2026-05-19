@@ -1,0 +1,62 @@
+{
+  "skill_name": "twse-institutional-analysis",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "幫我下載三大法人日報表，從 2026-01-01 到今天，每天一個 CSV 存到 bfi82u_data 目錄",
+      "expected_output": "執行 download_bfi82u.py --start 2026-01-01 --per-day --outdir bfi82u_data，每個交易日儲存獨立 CSV，假日自動跳過",
+      "assertions": [
+        {
+          "text": "使用 download_bfi82u.py 腳本下載資料",
+          "type": "contains_action"
+        },
+        {
+          "text": "使用 --per-day 與 --outdir 參數",
+          "type": "contains_action"
+        },
+        {
+          "text": "說明假日會自動跳過",
+          "type": "explains_skip"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "外資從 2025 年初到現在累積買超還是賣超多少？幫我畫累積走勢圖並標記重要轉折點",
+      "expected_output": "執行 stats_summary.py 取得累積差額，執行 plot_cumulative.py 產生含轉折點標記的圖表，並說明各轉折點日期對應的市場事件",
+      "assertions": [
+        {
+          "text": "產生含轉折點標記的累積走勢圖",
+          "type": "generates_chart"
+        },
+        {
+          "text": "提供累積買賣差額數字（億元）",
+          "type": "provides_stats"
+        },
+        {
+          "text": "說明轉折點對應的市場背景",
+          "type": "provides_analysis"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "分析三大法人 2025 到現在的走勢，告訴我外資、投信、自營商各自的表現，並給投資建議",
+      "expected_output": "執行 stats_summary.py 與 plot_cumulative.py，提供各法人累積差額、月份統計、走勢解讀，以及短中長線投資建議",
+      "assertions": [
+        {
+          "text": "分析外資、投信、自營商三者各別表現",
+          "type": "covers_all_institutions"
+        },
+        {
+          "text": "提供月份或年度統計數字",
+          "type": "provides_monthly_stats"
+        },
+        {
+          "text": "包含投資建議並附免責說明",
+          "type": "has_investment_advice"
+        }
+      ]
+    }
+  ]
+}
