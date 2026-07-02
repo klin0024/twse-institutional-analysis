@@ -45,6 +45,10 @@ def check_missing(outdir: Path, start: date, end: date) -> list[date]:
     return missing
 
 
+class FetchError(Exception):
+    """網路或回應格式錯誤，非確定的假日/休市，不應標記為已完成。"""
+
+
 def fetch_day(day: date) -> dict | None:
     params = {"type": "day", "dayDate": day.strftime("%Y%m%d"), "response": "json"}
     try:
@@ -52,14 +56,15 @@ def fetch_day(day: date) -> dict | None:
         resp.raise_for_status()
         payload = resp.json()
     except requests.RequestException as exc:
-        print(f"  [ERROR] {day} 下載失敗：{exc}", file=sys.stderr)
-        return None
+        raise FetchError(f"下載失敗：{exc}") from exc
     except json.JSONDecodeError:
-        print(f"  [ERROR] {day} 回應非 JSON", file=sys.stderr)
-        return None
+        raise FetchError("回應非 JSON 格式")
     if payload.get("stat") != "OK":
-        return None   # 假日/休市，靜默跳過
+        return None   # 確定假日/休市
     return payload
+
+
+HOLIDAY_FIELDNAMES = ["日期", "單位名稱", "買進金額", "賣出金額", "買賣差額"]
 
 
 def payload_to_csv(payload: dict, path: Path):
@@ -75,6 +80,14 @@ def payload_to_csv(payload: dict, path: Path):
             row = {"日期": date_fmt}
             row.update(zip(fields, record))
             writer.writerow(row)
+
+
+def write_holiday_marker(path: Path):
+    """假日/休市：寫入只有表頭的空 CSV，避免下次執行重複下載同一天。"""
+    import csv
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=HOLIDAY_FIELDNAMES)
+        writer.writeheader()
 
 
 def main():
@@ -104,25 +117,42 @@ def main():
 
     # ── 第二步：嘗試下載缺少的日期 ──────────────────────────
     downloaded = 0
-    skipped    = 0   # 假日/休市
+    skipped    = 0   # 確定假日/休市（已寫入標記檔）
+    pending    = 0   # 今日/未來日期，資料尚未公布，不標記
     errors     = 0
+    today = date.today()
 
     print(f"\n[DOWNLOAD] 開始下載 {len(missing)} 個缺少日期...")
     for i, d in enumerate(missing):
         print(f"  [{i+1}/{len(missing)}] {d} ...", end=" ", flush=True)
-        payload = fetch_day(d)
+        path = outdir / f"{d.strftime('%Y%m%d')}.csv"
+        try:
+            payload = fetch_day(d)
+        except FetchError as exc:
+            print(f"ERROR（{exc}）")
+            errors += 1
+            if len(missing) > 1:
+                time.sleep(0.5)
+            continue
+
         if payload:
-            path = outdir / f"{d.strftime('%Y%m%d')}.csv"
             payload_to_csv(payload, path)
             print("OK")
             downloaded += 1
+        elif d >= today:
+            # 今日或未來日期：TWSE 可能尚未公布資料，不寫標記檔，下次會重新檢查
+            print("SKIP（資料尚未公布，暫不標記）")
+            pending += 1
         else:
-            print("SKIP（假日/休市）")
+            # 過去日期確定無資料：寫入空白標記檔，避免下次重複下載
+            write_holiday_marker(path)
+            print("SKIP（假日/休市，已標記避免重複下載）")
             skipped += 1
         if len(missing) > 1:
             time.sleep(0.5)
 
-    print(f"\n[DONE] 下載 {downloaded} 筆，跳過 {skipped} 筆（假日），失敗 {errors} 筆")
+    print(f"\n[DONE] 下載 {downloaded} 筆，假日跳過 {skipped} 筆，"
+          f"尚未公布 {pending} 筆，失敗 {errors} 筆")
     print(f"[DONE] 資料目錄：{outdir.resolve()}")
 
 

@@ -119,6 +119,16 @@ def write_csv(rows: list[dict], path: Path) -> None:
         writer.writerows(rows)
 
 
+HOLIDAY_FIELDNAMES = ["日期", "單位名稱", "買進金額", "賣出金額", "買賣差額"]
+
+
+def write_holiday_marker(path: Path) -> None:
+    """假日/休市：寫入只有表頭的空 CSV，避免下次重複下載同一天。"""
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=HOLIDAY_FIELDNAMES)
+        writer.writeheader()
+
+
 def main() -> None:
     args = parse_args()
     today = date.today()
@@ -143,6 +153,7 @@ def main() -> None:
     all_rows: list[dict] = []
     saved_files: list[Path] = []
 
+    today = date.today()
     for d in dates:
         print(f"[FETCH] {d} ...", end=" ", flush=True)
         payload = fetch_day(d)
@@ -157,6 +168,14 @@ def main() -> None:
             else:
                 all_rows.extend(rows)
                 print(f"OK（{len(rows)} 筆）")
+        elif args.per_day and d < today:
+            # 過去日期確定無資料：寫入空白標記檔，避免下次重複下載
+            file_path = outdir / f"{d.strftime('%Y%m%d')}.csv"
+            write_holiday_marker(file_path)
+            saved_files.append(file_path)
+            print(f"SKIP（假日/休市，已標記）→ {file_path}")
+        elif args.per_day:
+            print("SKIP（資料尚未公布，暫不標記）")
         if len(dates) > 1:
             time.sleep(0.5)   # 避免過快觸發伺服器限制
 
